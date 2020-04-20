@@ -23,6 +23,7 @@ impl FancyHandler {
 
 impl ActionHandler for FancyHandler {
     fn do_something(&mut self, input: i32, shared: &mut SharedState) {
+        shared.z += 1;
         println!("fancy calculated {}", self.value * input * 3);
     }
 }
