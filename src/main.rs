@@ -1,4 +1,6 @@
 use std::thread;
+use std::sync::{Arc, Mutex};
+use std::time::Duration;
 
 
 trait ActionHandler {
@@ -105,39 +107,43 @@ impl State {
             (HandlerWrapper::Fancy(_), Message::Change)  => self.handler = HandlerWrapper::Simple(SimpleHandler::new()),
             (HandlerWrapper::Simple(_), Message::Stay{name: _})  => self.handler = HandlerWrapper::Simple(SimpleHandler::new()),
             (HandlerWrapper::Simple(_), Message::Change)  => self.handler = HandlerWrapper::Fancy(FancyHandler::new()),
-            _ => panic!("unhandled transition") // remove this in the end
+            // _ => panic!("unhandled transition") // remove this in the end
         }
     }
 }
 
-// todo
-// state transitions
-// put it into a mutex/arc, call from two threads
-
 fn main() {
 
-    let mut state = State::new();
-    println!("state = {:?}", state);
+    let mutex = Arc::new(Mutex::new(State::new()));
 
-    state.advance_handler(Message::Stay{name: String::from("bla")});
-    println!("state = {:?}", state);
-    state.do_something(4);
+    let data_change = Arc::clone(&mutex);
+    let data_print = Arc::clone(&mutex);
 
-    state.advance_handler(Message::Change);
-    println!("state = {:?}", state);
-    state.do_something(4);
+    let change_handle = thread::spawn(move || {
+        
+        loop {
+            {
+                let mut data = data_change.lock().unwrap();
+                data.advance_handler(Message::Change);
+            }
+            thread::sleep(Duration::from_millis(2000));
+        }
+    });
 
-    state.advance_handler(Message::Change);
-    println!("state = {:?}", state);
-    state.do_something(4);
+    let print_handle = thread::spawn(move || {
+        loop {
+            {
+                let mut data = data_print.lock().unwrap();
+                data.do_something(5);
+                println!("{:?}", data);
+            }
+            thread::sleep(Duration::from_millis(500));
+        }
+    });
 
 
+    let _ = print_handle.join();
+    let _ = change_handle.join();
 
-    // let mut fancy = HandlerWrapper::Fancy(FancyHandler::new());
-    // let mut simple = SimpleHandler::new();
-
-    // let input = 3;
-    // fancy.do_something(input);
-    // simple.do_something(input);
 
 }
